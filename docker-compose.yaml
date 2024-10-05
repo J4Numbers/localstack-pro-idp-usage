@@ -1,0 +1,50 @@
+networks:
+  oidc-net:
+    driver: bridge
+
+services:
+  httpbin:
+    image: kong/httpbin:0.2.0
+    hostname: httpbin.local
+    networks:
+      - oidc-net
+
+  openresty:
+    build:
+      context: openresty
+      dockerfile: Dockerfile
+    hostname: openresty.local
+    networks:
+      - oidc-net
+    ports:
+      - 8000:8000
+    volumes:
+      - ./openresty/nginx.conf:/etc/nginx/conf.d/default.conf
+
+  localstack:
+    image: localstack/localstack-pro:3.8.0
+    env_file: localstack.local.env
+    hostname: localstack.local
+    networks:
+      - oidc-net
+    healthcheck:
+      test: [ "CMD", "curl", "http://localhost:4566/_localstack/health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "4566:4566"
+      - "4510-4559:4510-4559"
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0.0
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    hostname: keycloak.local
+    networks:
+      - oidc-net
+    command: [ "start-dev" ]
+    ports:
+      - 8080:8080
+    restart: unless-stopped
